@@ -27,7 +27,7 @@ def char_entschluesseln(vektor, blocks, entschluesselter_block, stelle):
     entschlüsselte_Werte_mit_padding = [padding[i] ^ entschluesselter_block[i] for i in range(len(padding))]
 
     blocks_kopie = blocks[:]
-    vector_kopie = vektor
+    vector_kopie = vektor[:]
 
     # alle chars durchlaufen
     for char in range(0, 256):
