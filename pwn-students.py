@@ -14,16 +14,8 @@ def read_until(s, token):
         if not data or token in buf:
             return buf
 
-def decrypt_char(iv, blocks, decrypted_values, i):
+def char_entschluesseln(iv, blocks, decrypted_values, i):
     """Decrypts a single byte"""
-    blocks_copy = blocks[:]
-    iv_copy = iv
-
-    #todo
-    # calculate padding for i
-    padding = ([0x0] * (15 - i)) + ([i + 1] * (i + 1))
-    # xor padding with the previous decrypted values
-    decripted_values_with_padding2 = [padding[i] ^ decrypted_values[i] for i in range(len(padding))]
 
     decripted_values_with_padding = [0x0] * 16
     for j in range(0, 16):
@@ -35,63 +27,62 @@ def decrypt_char(iv, blocks, decrypted_values, i):
 
     # test padding for the i-th byte in the block
     for char in range(0, 256):
-        # exclude the case, where evil is 0x0 (trivially true)
+        # exclude the case, where angriffsvektor is 0x0 (trivially true)
         if char != i + 1:
 
             # value to be XORed with the block
             aux = [0x0] * (15 - i) + [char] + [0x0] * i
-            evil = [decripted_values_with_padding[i] ^ aux[i] for i in range(len(decripted_values_with_padding))]
+            angriffsvektor = [decripted_values_with_padding[i] ^ aux[i] for i in range(len(decripted_values_with_padding))]
 
-            # xor the block (or the iv) with the evil value
+            # xor the block (or the iv) with the angriffsvektor value
+
+            blocks_permuted = blocks[:]
+            iv_permuted = iv
             if (len(blocks) == 1):
-                aux2 = bytes([(iv[i] ^ (evil[i])) for i in range(len(iv))])
-                iv_copy = aux2
+                iv_permuted = bytes([(iv[i] ^ (angriffsvektor[i])) for i in range(len(iv))])
             else:
-                aux2 = bytes([(blocks[-2][i] ^ (evil[i])) for i in range(len(blocks[-2]))])
-                blocks_copy[-2] = aux2
+                blocks_permuted[-2] = bytes([(blocks[-2][i] ^ (angriffsvektor[i])) for i in range(len(blocks[-2]))])
 
-            # check if the padding is valid
+            # padding stimmt ?
 
             s = socket.socket()
             s.connect(("itsec.sec.in.tum.de", 7023))
 
             start = read_until(s, b"Do you")
-            s.send(binascii.hexlify(iv_copy) + b"\n")
-            s.send(binascii.hexlify(b''.join(blocks_copy)) + b"\n")
+            s.send(binascii.hexlify(iv_permuted) + b"\n")
+            s.send(binascii.hexlify(b''.join(blocks_permuted)) + b"\n")
             response = read_until(s, b"\n")
             if b"OK" in response:
                 decrypted_values[15 - i] = char
                 return char
 
-    # if no valid padding found, it is the value we skipped before
     decrypted_values[15 - i] = i + 1
     return i + 1
 
-
-def decypt_block(iv, blocks, decrypted):
-    """Decrypts a single block"""
-    decrypted_values = [0x0] * 16
-
-    # decrypt each byte in the block
-    for i in range(0, 16):
-        n = decrypt_char(iv, blocks, decrypted_values, i)
-        decrypted.insert(0, n)
-        print(str(bytes(decrypted))[2:-1])
-
 def main():
-    decrypted = []
+    flag = []
 
-    # divide the message into blocks of 16 bytes
-    blocks = [msg[i:i + 16] for i in range(0, len(msg), 16)]
+    bloecke = []
+    for i in range(0, len(msg), 16):
+        block = msg[i:i + 16]
+        bloecke.append(block)
 
-    # decrypt blocks
-    for i in range(len(blocks)):
-        decypt_block(iv, blocks, decrypted)
+    # decrypt blöcke
+    for i in range(len(bloecke)):
+
+        entschluesselterBlock = [0x0] * 16
+
+        # decrypt each byte in the block
+        for i in range(0, 16):
+            n = char_entschluesseln(iv, bloecke, entschluesselterBlock, i)
+            flag.insert(0, n)
+            print(str(bytes(flag))[2:-1])
+
         # block entfernen nachdem voll entschlüsselt
-        del blocks[-1]
+        del bloecke[-1]
 
-    # print the decrypted message
-    print(f"\nDecrypted message: {bytes(decrypted)}")
+    # print the flag message
+    print(f"\nDecrypted message: {bytes(flag)}")
 
 if __name__ == "__main__":
     main()
