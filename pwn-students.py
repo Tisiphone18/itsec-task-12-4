@@ -16,75 +16,95 @@ def read_until(s, token):
         if not data or token in buf:
             return buf
 
+
+def check_padding(iv, blocks):
+    """Checks if the padding is valid by sending the encrypted message to the padding oracle"""
+    s = socket.socket()
+    s.connect(("itsec.sec.in.tum.de", 7023))
+
+    start = read_until(s, b"Do you")
+    s.send(binascii.hexlify(iv) + b"\n")
+    s.send(binascii.hexlify(b''.join(blocks)) + b"\n")
+
+    response = read_until(s, b"\n")
+    return b"OK" in response
+
+
+def xor_lists(a, b):
+    """XORs two lists of bytes"""
+    return [a[i] ^ b[i] for i in range(len(a))]
+
+
 def xor_block_with_list(block, list):
     """XORs a block with a list of bytes"""
     return bytes([(block[i] ^ (list[i])) for i in range(len(block))])
 
 
-def char_entschluesseln(vektor, blocks, entschluesselter_block, stelle):
+def decrypt_char(iv, blocks, decrypted_values, i):
+    """Decrypts a single byte"""
+    blocks_copy = blocks.copy()
+    iv_copy = iv
 
-    padding = ([0x0] * (15 - stelle)) + ([stelle + 1] * (stelle + 1)) # [0,0,...,(i+1),(i+1)]
-    entschlüsselte_Werte_mit_padding = [padding[i] ^ entschluesselter_block[i] for i in range(len(padding))]
+    # calculate padding for i
+    padding = ([0x0] * (15 - i)) + ([i + 1] * (i + 1))
 
-    blocks_kopie = blocks[:]
-    vector_kopie = vektor[:]
+    # xor padding with the previous decrypted values
+    decripted_values_with_padding = xor_lists(padding, decrypted_values)
 
-    # alle chars durchlaufen
-    for char in range(0, 256):
-        if char != stelle + 1: # sonst Sonderfall !
+    # test padding for the i-th byte in the block
+    for n in range(0, 256):
+        # exclude the case, where evil is 0x0 (trivially true)
+        if n == i + 1:
+            continue
 
-            #xor Wert an Pos stelle mit char
-            arr = [0x0] * (15 - stelle) + [char] + [0x0] * stelle
-            angriffsvektor = [entschlüsselte_Werte_mit_padding[i] ^ arr[i] for i in range(len(entschlüsselte_Werte_mit_padding))]
+        # value to be XORed with the block
+        evil = xor_lists(decripted_values_with_padding, [0x0] * (15 - i) + [n] + [0x0] * i)
 
-            # xor den block (or den vector in der letzten Runde) mit dem angriffsvektor
-            if len(blocks) == 1:
-                #Vector mit angriffsvektor xorn
-                vector_kopie = xor_block_with_list(vektor, angriffsvektor)
-            else:
-                # Forgängerblock mit angriffsvektor xorn
-                blocks_kopie[-2] = xor_block_with_list(blocks[-2], angriffsvektor)
+        # xor the block (or the iv) with the evil value
+        if (len(blocks) > 1):
+            blocks_copy[-2] = xor_block_with_list(blocks[-2], evil)
+        else:
+            iv_copy = xor_block_with_list(iv, evil)
 
-            #Nachricht zusammenfügen !
-            ganzer_Block = ''.join('{:02x}'.format(byte) for byte in b''.join(blocks)).encode() + b'\n'
+        # check if the padding is valid
+        if check_padding(iv_copy, blocks_copy):
+            decrypted_values[15 - i] = n
+            return n
 
-            s = socket.socket()
-            s.connect(("itsec.sec.in.tum.de", 7023))
-            start = read_until(s, b"Do you")
-            s.send(binascii.hexlify(vector_kopie) + b"\n")
-            s.send(ganzer_Block)
-            response = read_until(s, b"\n")
+    # if no valid padding found, it is the value we skipped before
+    decrypted_values[15 - i] = i + 1
+    return i + 1
 
-            if b"OK" in response: #Wert speichern und aus Schleife
-                entschluesselter_block[15 - stelle] = char
-                return char
 
-    # wenn kein valider Char existiert, dann Sonderfall
-    char = stelle + 1
-    entschluesselter_block[15 - stelle] = char
-    return char
+def decypt_block(iv, blocks, decrypted):
+    """Decrypts a single block"""
+    decrypted_values = [0x0] * 16
 
-entschluesselter_Text = []
+    # decrypt each byte in the block
+    for i in range(0, 16):
+        n = decrypt_char(iv, blocks, decrypted_values, i)
+        decrypted.append(n)
+        print(str(bytes(decrypted[::-1]))[2:-1])
 
-blocks = [msg[i:i + 16] for i in range(0, len(msg), 16)]
 
-# Blöcke entschlüsseln
-for b in range(len(blocks)):
+# The server allows you to process a single message with each connection.
+# Connect multiple times to decrypt the (IV, msg) pair above byte by byte.
+def main():
+    decrypted = []
 
-    entschluesselter_block = [0x0 for _ in range(16)]
+    # divide the message into blocks of 16 bytes
+    blocks = [msg[i:i + 16] for i in range(0, len(msg), 16)]
 
-    # jedes Byte im Block entschlüsseln
-    for stelle in range(0, 16):
-        char = char_entschluesseln(iv, blocks, entschluesselter_block, stelle)
-        #todo append -> umdrehen !
-        entschluesselter_Text.append(char)
-        #todo
-        print(str(bytes(entschluesselter_Text[::-1]))[2:-1])
+    # decrypt blocks
+    for i in range(len(blocks)):
+        decypt_block(iv, blocks, decrypted)
+        # remove blocks after they are fully decripted
+        blocks.pop()
 
-    # letzten Block entfernen um weiter zumachen mit 16 byte kürzerer Nachricht
-    del blocks[-1]
+    # print the decrypted message
+    print(f"\nDecrypted message: {bytes(decrypted[::-1])}")
 
-# entschlüsselte Flag:
-print(f"\nMeine Flag ist: ", bytes(entschluesselter_Text))
+if __name__ == "__main__":
+    main()
 
 #flag_bytes = b'This is your flag: flag{15de674f8c8aea5991a8410da27521ff4760}\n\n\x01'
