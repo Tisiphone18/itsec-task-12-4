@@ -16,45 +16,52 @@ def read_until(s, token):
 
 def decrypt_char(iv, blocks, decrypted_values, i):
     """Decrypts a single byte"""
-    blocks_copy = blocks.copy()
+    blocks_copy = blocks[:]
     iv_copy = iv
 
+    #todo
     # calculate padding for i
     padding = ([0x0] * (15 - i)) + ([i + 1] * (i + 1))
-
     # xor padding with the previous decrypted values
-    decripted_values_with_padding = [padding[i] ^ decrypted_values[i] for i in range(len(padding))]
+    decripted_values_with_padding2 = [padding[i] ^ decrypted_values[i] for i in range(len(padding))]
+
+    decripted_values_with_padding = [0x0] * 16
+    for j in range(0, 16):
+        if j < (15 - i):
+            decripted_values_with_padding[j] = decrypted_values[j] ^ 0x00
+        else:
+            decripted_values_with_padding[j] = decrypted_values[j] ^ (i+1)
+
 
     # test padding for the i-th byte in the block
-    for n in range(0, 256):
+    for char in range(0, 256):
         # exclude the case, where evil is 0x0 (trivially true)
-        if n == i + 1:
-            continue
+        if char != i + 1:
 
-        # value to be XORed with the block
-        aux = [0x0] * (15 - i) + [n] + [0x0] * i
-        evil = [decripted_values_with_padding[i] ^ aux[i] for i in range(len(decripted_values_with_padding))]
+            # value to be XORed with the block
+            aux = [0x0] * (15 - i) + [char] + [0x0] * i
+            evil = [decripted_values_with_padding[i] ^ aux[i] for i in range(len(decripted_values_with_padding))]
 
-        # xor the block (or the iv) with the evil value
-        if (len(blocks) == 1):
-            aux2 = bytes([(iv[i] ^ (evil[i])) for i in range(len(iv))])
-            iv_copy = aux2
-        else:
-            aux2 = bytes([(blocks[-2][i] ^ (evil[i])) for i in range(len(blocks[-2]))])
-            blocks_copy[-2] = aux2
+            # xor the block (or the iv) with the evil value
+            if (len(blocks) == 1):
+                aux2 = bytes([(iv[i] ^ (evil[i])) for i in range(len(iv))])
+                iv_copy = aux2
+            else:
+                aux2 = bytes([(blocks[-2][i] ^ (evil[i])) for i in range(len(blocks[-2]))])
+                blocks_copy[-2] = aux2
 
-        # check if the padding is valid
+            # check if the padding is valid
 
-        s = socket.socket()
-        s.connect(("itsec.sec.in.tum.de", 7023))
+            s = socket.socket()
+            s.connect(("itsec.sec.in.tum.de", 7023))
 
-        start = read_until(s, b"Do you")
-        s.send(binascii.hexlify(iv_copy) + b"\n")
-        s.send(binascii.hexlify(b''.join(blocks_copy)) + b"\n")
-        response = read_until(s, b"\n")
-        if b"OK" in response:
-            decrypted_values[15 - i] = n
-            return n
+            start = read_until(s, b"Do you")
+            s.send(binascii.hexlify(iv_copy) + b"\n")
+            s.send(binascii.hexlify(b''.join(blocks_copy)) + b"\n")
+            response = read_until(s, b"\n")
+            if b"OK" in response:
+                decrypted_values[15 - i] = char
+                return char
 
     # if no valid padding found, it is the value we skipped before
     decrypted_values[15 - i] = i + 1
@@ -68,8 +75,8 @@ def decypt_block(iv, blocks, decrypted):
     # decrypt each byte in the block
     for i in range(0, 16):
         n = decrypt_char(iv, blocks, decrypted_values, i)
-        decrypted.append(n)
-        print(str(bytes(decrypted[::-1]))[2:-1])
+        decrypted.insert(0, n)
+        print(str(bytes(decrypted))[2:-1])
 
 def main():
     decrypted = []
@@ -84,7 +91,7 @@ def main():
         del blocks[-1]
 
     # print the decrypted message
-    print(f"\nDecrypted message: {bytes(decrypted[::-1])}")
+    print(f"\nDecrypted message: {bytes(decrypted)}")
 
 if __name__ == "__main__":
     main()
