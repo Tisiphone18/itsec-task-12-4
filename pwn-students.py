@@ -77,7 +77,8 @@ for b in range(0, 4):
     for stelle in range(0, 16):
         char = char_entschluesseln(iv, blocks, entschluesselter_block, stelle)
         entschluesselter_Text.insert(0, char)
-        print(char)
+        #todo
+        print(str(bytes(entschluesselter_Text[::-1]))[2:-1])
 
     # letzten Block entfernen um weiter zumachen mit 16 byte kürzerer Nachricht
     del blocks[-1]
@@ -85,3 +86,4 @@ for b in range(0, 4):
 # entschlüsselte Flag:
 print(f"\nMeine Flag ist: ", bytes(entschluesselter_Text))
 
+#flag_bytes = b'This is your flag: flag{15de674f8c8aea5991a8410da27521ff4760}\n\n\x01'
