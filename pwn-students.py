@@ -69,14 +69,15 @@ entschluesselter_Text = []
 blocks = [msg[i:i + 16] for i in range(0, len(msg), 16)]
 
 # Blöcke entschlüsseln
-for b in range(0, 4):
+for b in range(len(blocks)):
 
     entschluesselter_block = [0x0 for _ in range(16)]
 
     # jedes Byte im Block entschlüsseln
     for stelle in range(0, 16):
         char = char_entschluesseln(iv, blocks, entschluesselter_block, stelle)
-        entschluesselter_Text.insert(0, char)
+        #todo append -> umdrehen !
+        entschluesselter_Text.append(char)
         #todo
         print(str(bytes(entschluesselter_Text[::-1]))[2:-1])
 
