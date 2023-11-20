@@ -1,4 +1,4 @@
-from Crypto.Cipher import AES
+import Cryptodome.Cipher
 import binascii
 import os
 import sys

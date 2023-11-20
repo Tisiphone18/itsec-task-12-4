@@ -17,30 +17,22 @@ def char_entschluesseln(blocks, entschluesselte_werte, i):
     for char in range(0, 256):
         if char != i + 1:
 
+            angriffsvektor = [0x0] * 16
+
+            for j in range(0, 16):
+                if j < (15 - i):
+                    angriffsvektor[j] = entschluesselte_werte[j]
+                elif j == (15 - i):
+                    angriffsvektor[j] = entschluesselte_werte[j] ^ (i + 1) ^ char
+                else:
+                    angriffsvektor[j] = entschluesselte_werte[j] ^ (i + 1) ^ 0x00
+
             blocks_permuted = blocks[:]
             iv_permuted = iv
 
             if len(blocks) == 1:
-
-                for j in range(0, 16):
-                    if j < (15 - i):
-                        iv_permuted[j] = entschluesselte_werte[j] ^ iv[j]
-                    elif j == (15 - i):
-                        iv_permuted[j] = entschluesselte_werte[j] ^ (i + 1) ^ char ^ iv[j]
-                    else:
-                        iv_permuted[j] = entschluesselte_werte[j] ^ (i + 1) ^ 0x00 ^ iv[j]
-
+                iv_permuted = bytes([(iv[i] ^ (angriffsvektor[i])) for i in range(len(iv))])
             else:
-
-                angriffsvektor = [0x0] * 16
-                for j in range(0, 16):
-                    if j < (15 - i):
-                        angriffsvektor[j] = entschluesselte_werte[j]
-                    elif j == (15 - i):
-                        angriffsvektor[j] = entschluesselte_werte[j] ^ (i + 1) ^ char
-                    else:
-                        angriffsvektor[j] = entschluesselte_werte[j] ^ (i + 1) ^ 0x00
-
                 blocks_permuted[-2] = bytes([(blocks[-2][i] ^ (angriffsvektor[i])) for i in range(len(blocks[-2]))])
 
             s = socket.socket()
