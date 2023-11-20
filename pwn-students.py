@@ -28,17 +28,17 @@ def char_entschluesseln(blocks, entschlüsselte_werte, i):
         if char != i + 1:
 
             aux = [0x0] * (15 - i) + [char] + [0x0] * i
-            angriffsvektor = [entschl_werte_aux[i] ^ aux[i] for i in range(len(entschl_werte_aux))]
+            angriffsvektor2 = [entschl_werte_aux[i] ^ aux[i] for i in range(len(entschl_werte_aux))]
 
 
-            angriffsvektor2 = [0x0] * 16
+            angriffsvektor = [0x0] * 16
             for j in range(0, 16):
                 if j < (15 - i):
-                    angriffsvektor2[j] = entschlüsselte_werte[j]
+                    angriffsvektor[j] = entschlüsselte_werte[j]
                 if j == (15 - i):
-                    angriffsvektor2[j] = entschlüsselte_werte[j] = char
+                    angriffsvektor[j] = entschlüsselte_werte[j] = char
                 else:
-                    angriffsvektor2[j] = entschlüsselte_werte[j] ^ (i + 1)
+                    angriffsvektor[j] = entschlüsselte_werte[j] ^ (i + 1)
             # xor des block mit angriffsvektor
 
             blocks_permuted = blocks[:]
